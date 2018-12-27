@@ -1,6 +1,6 @@
 const Discord = require('discord.js');
 const config = require('./config.json');
-const manager = new Discord.ShardingManager('./botmusic.js', {token: config.token});
+const manager = new Discord.ShardingManager('./botmusic.js', {token: process.env.TOKEN});
 manager.spawn().then(() => {
     console.log(`El complemento de música ha sido encendido! Actualmente ejecuntando ${manager.totalShards} shards.`);
 

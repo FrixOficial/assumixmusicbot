@@ -1,296 +1,435 @@
 const Discord = require('discord.js');
 const client = new Discord.Client();
-const YouTube = require('simple-youtube-api');
-const ytdl = require('ytdl-core');
-const youtube = new YouTube("AIzaSyDriktasQme3FrX8j1VwRTBqg22VgPEF4M");
 const config = require('./config.json')
 const db = require('quick.db')
-/*global Map*/
-const queue = new Map();
+const YoutubeDL = require('youtube-dl');
+const ytdl = require('ytdl-core');
+
+let cooldown = new Set();
+let queues = {}
+let ALLOW_ALL_SKIP = true
+let DEFAULT_VOLUME = 100
+let GLOBAL = false
 
 client.on('ready', () => {
-  console.log('Shard '+client.shard.id+' iniciado.')
-  });
+console.log('Shard '+client.shard.id+' Listo.')
+});
 
+client.on("message", (message) => {
+  if (message.author.bot) return;
+  if (message.channel.type === "dm") return;
+  db.fetch(`guildPrefix_${message.guild.id}`).then(i => {
+    let prefix;
 
-var servers = {};
-client.on("message", async message => {
-  let prefix;
-  db.fetch(`guildPrefix_${message.guild.id}`).then(async i => {
     if (i) {
      prefix = i
      } else {
-       prefix = config.prefix
+        prefix = config.prefix
         }
-    var args = message.content.substring(prefix.length).split(" ");
-    if (!message.content.startsWith(prefix)) return;
-  var searchString = args.slice(1).join(' ');
-	var url = args[1] ? args[1].replace(/<(.+)>/g, '$1') : '';
-	var serverQueue = queue.get(message.guild.id);
-    switch (args[0].toLowerCase()) {
-      case "search":
-        if(!url) return message.channel.send(":musical_note: :x: | Introduce términos para buscar.")
-    var voiceChannel = message.member.voiceChannel;
-		if (!voiceChannel) return message.channel.send(':musical_note: :x: | Necesitas estar en un canal de voz.');
-		var permissions = voiceChannel.permissionsFor(message.client.user);
-		if (!permissions.has('CONNECT')) {
-			return message.channel.send(':musical_note: :x: | No tengo permisos para conectarme a ese canal. Asegúrate de que tengo permisos para entrar e intenta de nuevo.');
+  if (!message.content.startsWith(prefix)) return;
+const text = message.content.slice(prefix.length).trim().split(/ +/g);
+const command = text.shift().toLowerCase();
+const args = text.join(" ");
+
+  if (command === "play") {
+  if(cooldown.has(message.author.id)){
+    message.channel.send(`**${message.author.username}**, espera 10 segundos para poder usar el comando de nuevo.`).then(m => {
+    m.delete(5000)
+    });
+    return;
+ }
+ cooldown.add(message.author.id);
+
+ setTimeout(() => {
+   cooldown.delete(message.author.id);
+ }, 10000);
+
+  if (message.member.voiceChannel === undefined) {
+    const embed = new Discord.RichEmbed()
+    .setDescription(':x: **No estás en un canal de voz.**')
+    message.channel.send({embed})
+    return;
+    }
+
+		// Make sure the suffix exists.
+		if (!args) {
+    const embed = new Discord.RichEmbed()
+    .setDescription(':x: **Por favor introduzca términos para buscar.**')
+    message.channel.send({embed})
+      return;
+    }
+
+		// Get the queue.
+		const queue = getQueue(message.guild.id);
+
+		// Check if the queue has reached its maximum size.
+		if (queue.length >= 15) {
+			return message.channel.send(':x:  Has alcanzado el límite de canciones para la lista.');
 		}
-		if (!permissions.has('SPEAK')) {
-			return message.channel.send(':musical_note: :x: | No tengo permisos para hablar en ese canal. Asegúrate de que tengo permisos para hablar e intenta de nuevo.');
-		}
-      if (url.match(/^https?:\/\/(www.youtube.com|youtube.com)\/playlist(.*)$/)) {
-			var playlist = await youtube.getPlaylist(url);
-			var videos = await playlist.getVideos();
-			for (const video of Object.values(videos)) {
-				var video2 = await youtube.getVideoByID(video.id); // eslint-disable-line no-await-in-loop
-				await handleVideo(video2, message, voiceChannel, true); // eslint-disable-line no-await-in-loop
+
+		// Get the video information.
+		message.channel.send(':arrows_counterclockwise: Buscando canción...').then(response => {
+			var searchstring = args
+			if (!args.toLowerCase().startsWith('http')) {
+				searchstring = 'gvsearch1:' + args;
 			}
-			return message.channel.send(`:musical_note: | La lista de reproducción **${playlist.title}** ha sido enlistado.`);
-		} else {
-			try {
-				var video = await youtube.getVideo(url);
-			} catch (error) {
-				try {
-					var videos = await youtube.searchVideos(searchString, 10);
-					var index = 0;
-                    let lista= new Discord.RichEmbed()
-                    .setAuthor("Escribe el número del título para continuar.")
-                    .setDescription(`${videos.map(video2 => "``\n"+`${++index} -`+`${video2.title}`+"``").join('\n\n')}`)
-                    .setColor("RANDOM")
-                    .setFooter("Tienes 30 segundos para escribir el número.");
-                    message.channel.send(lista)
-					// eslint-disable-next-line max-depth
-					try {
-						var response = await message.channel.awaitMessages(message2 => message2.content > 0 && message2.content < 11, {
-							maxMatches: 1,
-							time: 30000,
-							errors: ['time']
-						});
-					} catch (err) {
-						console.error(err);
-                        return message.channel.send(':musical_note: :x: | No se ha puesto ningún número válido. La selección de canciones ha sido cancelado.');
-					}
-					var videoIndex = parseInt(response.first().content);
-					var video = await youtube.getVideoByID(videos[videoIndex - 1].id);
-				} catch (err) {
-					console.error(err);
-					return message.channel.send(':musical_note: :x: | No hay resultados para su búsqueda.');
+
+			YoutubeDL.getInfo(searchstring, ['-q', '--no-warnings', '--force-ipv4'], (err, info) => {
+				// Verify the info.
+				if (err || info.format_id === undefined || info.format_id.startsWith('0')) {
+                    console.log(err)
+					return response.edit(':x:  |  Vídeo no encontrado.');
 				}
-			}
-			return handleVideo(video, message, voiceChannel);
+
+
+				info.requester = message.author.id;
+
+      const embed = new Discord.RichEmbed()
+      .setTitle(`:white_check_mark: Enlistado:`)
+      .setDescription(`[${info.title}](${info.webpage_url})`)
+      .setThumbnail(info.thumbnail)
+      .addField("Pedido por", `<@${message.author.id}>`, true)
+      response.edit({embed}).then(() => {
+					queue.push(info);
+					// Play if only one element in the queue.
+					if (queue.length === 1) executeQueue(message, queue);
+				}).catch(console.log)
+      });
+		}).catch(console.log);
+
+  }
+    if (command === "skip") {
+      if(cooldown.has(message.author.id)){
+        message.channel.send(`**${message.author.username}**, espera 10 segundos para poder usar el comando de nuevo.`).then(m => {
+        m.delete(5000)
+        });
+        return;
+     }
+     cooldown.add(message.author.id);
+
+     setTimeout(() => {
+       cooldown.delete(message.author.id);
+     }, 10000);
+
+      const voiceConnection = client.voiceConnections.find(val => val.channel.guild.id == message.guild.id);
+		if (voiceConnection === null) return message.channel.send('Ninguna canción está siendo reproducida.');
+
+		// Get the queue.
+		const queue = getQueue(message.guild.id);
+
+		if (!canSkip(message.member, queue)) return message.channel.send('No puedes saltar esto si tú no has sido el que lo ha enlistado.').then((response) => {
+			response.delete(5000);
+		});
+
+		// Get the number to skip.
+		let toSkip = 1; // Default 1.
+		if (!isNaN(args) && parseInt(args) > 0) {
+			toSkip = parseInt(args);
 		}
-        break;
-      case "skip":
-      if (!message.member.voiceChannel) return message.channel.send(':musical_note: :x: | No estás en un canal de voz.');
-      if (!serverQueue) return message.channel.send(':musical_note: :x: | La lista de reproducción está vacía.');
-      serverQueue.connection.dispatcher.end();
-		return message.channel.send(":musical_note: :fast_forward: | Canción Saltada.");
-       break;
-      case "leave":
-      if (!message.member.voiceChannel) return message.channel.send(':musical_note: :x: | No estás en un canal de voz.');
-      if (!serverQueue) return message.channel.send(':musical_note: :x: | La lista de reproducción de está vacía.');
-      serverQueue.songs = [];
-      serverQueue.connection.dispatcher.end();
-      return message.channel.send(":musical_note: :stop_button:  | He dejado el canal de voz y borré la lista de reproducción.");
-		return undefined;
-break;
-      case "volume":
-          if (!message.member.voiceChannel) return message.channel.send(':musical_note: :x: | No estás en un canal de voz.');
-          if (!serverQueue) return message.channel.send(':musical_note: :x: | La lista de reproducción está vacía.');
-          if (!args[1]) return message.channel.send(`:musical_note: :signal_strength: | El volúmen actual es: **${serverQueue.volume}**`);
-          serverQueue.volume = args[1];
-          if(serverQueue.volume > 200) return message.channel.send(":musical_note: :x: | Ingrese un número entre 1 y 200.")
-          serverQueue.connection.dispatcher.setVolumeLogarithmic(args[1] / 100);
-          return message.channel.send(`:musical_note: :signal_strength: | Se ha cambiado el volumen a: **${args[1]}**`);
-break;
-      case "np":
-      if (!serverQueue) return message.channel.send(':musical_note: :x: | La lista de reproducción está vacía.');
-      var fetchVideoInfo = require('youtube-info');
-      fetchVideoInfo(`${serverQueue.songs[0].id}`, function (err, videoInfo) {
-        if (err) throw new Error(err);
+		toSkip = Math.min(toSkip, queue.length);
 
-        const ytSearch = require( 'yt-search')
-      ytSearch( serverQueue.songs[0].url, function ( err, r ) {
-          if ( err ) throw err
+		// Skip.
+		queue.splice(0, toSkip - 1);
 
-          const videos = r.videos
-          const playlists = r.playlists
-          const accounts = r.accounts
+		// Resume and stop playing.
+		const dispatcher = voiceConnection.player.dispatcher;
+		if (voiceConnection.paused) dispatcher.resume();
+      if (queue.length === 0) return message.channel.send('La lista de canciones está vacía.')
+		dispatcher.end();
 
-          const firstResult = videos[ 0 ]
-      let embed = new Discord.RichEmbed()
-     // .setAuthor("Reproduciendo:", client.user.avatarURL)
-      .setAuthor("Reproduciendo Ahora.")
-      .setDescription("["+`${serverQueue.songs[0].title}`+"]"+"("+`${serverQueue.songs[0].url}`+")")
-      .setColor("RANDOM")
-      .addField("Duración", `${firstResult.timestamp}`,true)
-      .setThumbnail(serverQueue.songs[0].img)
-      .setTimestamp()
-      return message.channel.send(embed);
-      })})
-break;
-      case "queue":
-      if (!serverQueue) return message.channel.send(':musical_note: :x: | La lista de reproducción está vacía.');
-      const queue= new Discord.RichEmbed()
-      .setAuthor("Lista de reproduccion.")
-      .setDescription(`
-      ${serverQueue.songs.map(song => `**-** ${song.title}`).join('\n\n')}
-      **\nReproduciendo ahora:** ${serverQueue.songs[0].title}
-              `)
-      .setColor("RANDOM")
-      return message.channel.send(queue);
-break;
-      case "pause":
-		if (serverQueue && serverQueue.playing) {
-			serverQueue.playing = false;
-			serverQueue.connection.dispatcher.pause();
-			return message.channel.send(':musical_note: :pause_button: | La música ha sido pausada.');
-		}
-		return message.channel.send(':musical_note: :x: | La lista de reproducción está vacía.');
-break;
-      case "resume":
-		if (serverQueue && !serverQueue.playing) {
-			serverQueue.playing = true;
-			serverQueue.connection.dispatcher.resume();
-			return message.channel.send(':musical_note: ▶ | La música ha sido reanudada.');
-		}
-		return message.channel.send(':musical_note: :x: | La lista de reproducción está vacía.');
-
-
-	return undefined;
-break;
-case "play":
- if (!url) return message.channel.send(":musical_note: :x: | Introduzca términos para buscar, o alguna URL.")
-var voiceChannel = message.member.voiceChannel;
-    if (!voiceChannel) return message.channel.send(':musical_note: :x: | No estás en un canal de voz.');
-    var permissions = voiceChannel.permissionsFor(message.client.user);
-    if (!permissions.has('CONNECT')) {
-        return message.channel.send(':musical_note: :x: | No tengo permisos para conectarme a ese canal. Asegúrate de que tengo permisos para conectar e intenta de nuevo.');
+		const embed = new Discord.RichEmbed()
+    .setDescription(':track_next: **Canción saltada.**')
+    message.channel.send({embed});
     }
-    if (!permissions.has('SPEAK')) {
-        return message.channel.send(':musical_note: :x: | No tengo permisos para hablar en ese canal. Asegúrate de que tengo permisos para hablar e intenta de nuevo.');
+
+    if (command === "queue") {
+        if(cooldown.has(message.author.id)){
+          message.channel.send(`**${message.author.username}**, espera 10 segundos para poder usar el comando de nuevo.`).then(m => {
+          m.delete(5000)
+          });
+          return;
+       }
+       cooldown.add(message.author.id);
+
+       setTimeout(() => {
+         cooldown.delete(message.author.id);
+       }, 10000);
+
+        const queue = getQueue(message.guild.id);
+
+        if (queue.length === 0) return message.channel.send('La lista de canciones está vacía.')
+
+		// Get the queue text.
+		const text = queue.map((video, index) => (
+			(index + 1) + '.- **' + video.title + '**'
+		)).join('\n');
+
+		// Get the status of the queue.
+		let queueStatus = 'Detenido';
+		const voiceConnection = client.voiceConnections.find(val => val.channel.guild.id == message.guild.id);
+		if (voiceConnection !== null) {
+			const dispatcher = voiceConnection.player.dispatcher;
+			queueStatus = dispatcher.paused ? 'Pausado' : 'Reproduciendo';
+		}
+
+		// Send the queue and status.
+		const embed = new Discord.RichEmbed()
+    .setTitle(':page_with_curl: Lista de Canciones')
+    .setDescription(text)
+    .addField('Estado', `${queueStatus}.`)
+    message.channel.send({embed});
+
     }
-  if (url.match(/^https?:\/\/(www.youtube.com|youtube.com)\/playlist(.*)$/)) {
-        var playlist = await youtube.getPlaylist(url);
-        var videos = await playlist.getVideos();
-        for (const video of Object.values(videos)) {
-            var video2 = await youtube.getVideoByID(video.id); // eslint-disable-line no-await-in-loop
-            await handleVideo(video2, voiceChannel, true); // eslint-disable-line no-await-in-loop
-        }
-        return message.channel.send(`:musical_note: | La lista de reproducción **${playlist.title}** ha sido enlistado.`);
+      if(command === "pause") {
+        if(cooldown.has(message.author.id)){
+          message.channel.send(`**${message.author.username}**, espera 10 segundos para poder usar el comando de nuevo.`).then(m => {
+          m.delete(5000)
+          });
+          return;
+       }
+       cooldown.add(message.author.id);
+
+       setTimeout(() => {
+         cooldown.delete(message.author.id);
+       }, 10000);
+        const voiceConnection = client.voiceConnections.find(val => val.channel.guild.id == message.guild.id);
+		if (voiceConnection === null) return message.channel.send('Ninguna canción está siendo reproducida.');
+        const queue = getQueue(message.guild.id);
+        if (queue.length === 0) return message.channel.send('No estoy reproduciendo nada.')
+
+		// Pause.
+	  const embed = new Discord.RichEmbed()
+    .setDescription(':pause_button: **Reproducción pausada.**')
+    message.channel.send({embed});
+		const dispatcher = voiceConnection.player.dispatcher;
+		if (!dispatcher.paused) dispatcher.pause();
+
+    }
+  if (command === 'join') {
+    if(cooldown.has(message.author.id)){
+          message.channel.send(`**${message.author.username}**, espera 10 segundos para poder usar el comando de nuevo.`).then(m => {
+          m.delete(5000)
+          });
+          return;
+       }
+       cooldown.add(message.author.id);
+
+       setTimeout(() => {
+         cooldown.delete(message.author.id);
+       }, 10000);
+
+    let Canalvoz = message.member.voiceChannel;
+    if (!Canalvoz || Canalvoz.type !== 'voice') {
+      const embed = new Discord.RichEmbed()
+      .setDescription('Necesitarás estar en un canal de voz para ejecutar este comando >.<')
+    message.channel.send({embed}).catch(error => message.channel.send(error));
+    } else if (message.guild.voiceConnection) {
+      const embed = new Discord.RichEmbed()
+      .setDescription('Lo siento :c, pero estoy conectada en otro canal.')
+    message.channel.send({embed});
     } else {
-        try {
-            var video = await youtube.getVideo(url);
-        } catch (error) {
-            try {
-                var videos = await youtube.searchVideos(searchString, 1);
-                var index = 0;
-                // eslint-disable-next-line max-depth
-                var videoIndex = parseInt("1");
-                var video = await youtube.getVideoByID(videos[videoIndex - 1].id);
-      var response= "1"
-            } catch (err) {
-                console.error(err);
-                return message.channel.send(':musical_note: :x: | No hay resultados para su búsqueda.');
-            }
-        }
-        return handleVideo(video, message, voiceChannel);
+     message.channel.send().then(m => {
+          Canalvoz.join().then(() => {
+            const embed = new Discord.RichEmbed()
+      .setDescription('Lista :D')
+               message.channel.send({embed}).catch(error => message.channel.send(error));
+         }).catch(error => message.channel.send(error));
+     }).catch(error => message.channel.send(error));
     }
-    break;
+  }
+      if(command === "leave") {
+        if(cooldown.has(message.author.id)){
+          message.channel.send(`**${message.author.username}**, espera 10 segundos para poder usar el comando de nuevo.`).then(m => {
+          m.delete(5000)
+          });
+          return;
+       }
+       cooldown.add(message.author.id);
+
+       setTimeout(() => {
+         cooldown.delete(message.author.id);
+       }, 10000);
+
+        const voiceConnection = client.voiceConnections.find(val => val.channel.guild.id == message.guild.id);
+			if (voiceConnection === null) return message.channel.send('No estoy en un canal de voz.');
+			// Clear the queue.
+			const queue = getQueue(message.guild.id);
+			queue.splice(0, queue.length);
+
+			// End the stream and disconnect.
+			message.member.voiceChannel.leave()
+      const embed = new Discord.RichEmbed()
+      .setDescription(':stop_button: **He abandonado el canal de voz.**')
+        message.channel.send({embed})
+
+    }
+      if(command === "clearqueue") {
+        if(cooldown.has(message.author.id)){
+          message.channel.send(`**${message.author.username}**, espera 10 segundos para poder usar el comando de nuevo.`).then(m => {
+          m.delete(5000)
+          });
+          return;
+       }
+       cooldown.add(message.author.id);
+
+       setTimeout(() => {
+         cooldown.delete(message.author.id);
+       }, 10000);
+
+        const voiceConnection = client.voiceConnections.find(val => val.channel.guild.id == message.guild.id);
+		    if (voiceConnection === null) return message.channel.send('Ninguna canción está siendo reproducida.');
+        const queue = getQueue(message.guild.id);
+
+			    queue.splice(0, queue.length);
+        const dispatcher = voiceConnection.player.dispatcher;
+        dispatcher.end();
+			    const embed = new Discord.RichEmbed()
+          .setDescription(':ballot_box_with_check: **La lista de canciones ha sido borrada.**')
+        message.channel.send({embed});
+
+    }
+      if(command === "resume") {
+        if(cooldown.has(message.author.id)){
+          message.channel.send(`**${message.author.username}**, espera 10 segundos para poder usar el comando de nuevo.`).then(m => {
+          m.delete(5000)
+          });
+          return;
+       }
+       cooldown.add(message.author.id);
+
+       setTimeout(() => {
+         cooldown.delete(message.author.id);
+       }, 10000);
+
+        const voiceConnection = client.voiceConnections.find(val => val.channel.guild.id == message.guild.id);
+		    if (voiceConnection === null) return message.channel.send('No estoy reproduciendo nada.');
+        const queue = getQueue(message.guild.id);
+        if (queue.length === 0) return message.channel.send('No estoy reproduciendo nada.')
+
+
+		// Resume.
+		const embed = new Discord.RichEmbed()
+    .setDescription(':arrow_forward: **Reproducción reanudada.**')
+    message.channel.send({embed});
+		const dispatcher = voiceConnection.player.dispatcher;
+		if (dispatcher.paused) dispatcher.resume();
+
+    }else
+      if (command === "volume") {
+        if(cooldown.has(message.author.id)){
+          message.channel.send(`**${message.author.username}**, espera 10 segundos para poder usar el comando de nuevo.`).then(m => {
+          m.delete(5000)
+          });
+          return;
+       }
+       cooldown.add(message.author.id);
+
+       setTimeout(() => {
+         cooldown.delete(message.author.id);
+       }, 10000);
+
+        const voiceConnection = client.voiceConnections.find(val => val.channel.guild.id == message.guild.id);
+		if (voiceConnection === null) return message.channel.send('No estoy reproduciendo nada.')
+        const queue = getQueue(message.guild.id);
+        if (queue.length === 0) return message.channel.send('No estoy reproduciendo nada.')
+
+		// Get the dispatcher
+		const dispatcher = voiceConnection.player.dispatcher;
+
+		if (args > 200 || args < 0) return message.channel.send('El valor debe estar entre 1 y 200.').then((response) => {
+			response.delete(5000);
+		});
+    const embed = new Discord.RichEmbed()
+    .setDescription(':signal_strength: El volumen ha sido cambiado a **'+ args +'**')
+		message.channel.send({embed});
+		dispatcher.setVolume((args/100));
 }
-async function handleVideo(video, message, voiceChannel, playlist = false) {
-	var serverQueue = queue.get(message.guild.id);
-	var song = {
-		id: video.id,
-        title: video.title,
-        request: message.author.lastMessage.author.username + "#" +message.author.lastMessage.author.discriminator,
-        img: video ['thumbnails'] ['medium'] ['url'],
-        channel: video ['raw'] ['snippet'] ['channelTitle'],
-		url: `https://www.youtube.com/watch?v=${video.id}`
-	};
-	if (!serverQueue) {
-		var queueConstruct = {
-			textChannel: message.channel,
-			voiceChannel: voiceChannel,
-			connection: null,
-      songs: [],
-			volume: 100,
-			playing: true
-		};
-		queue.set(message.guild.id, queueConstruct);
 
-		queueConstruct.songs.push(song);
-
-		try {
-			var connection = await message.member.voiceChannel.join();
-			queueConstruct.connection = connection;
-			play(message.guild, queueConstruct.songs[0]);
-		} catch (error) {
-			console.error(`I could not join the voice channel: ${error}`);
-			queue.delete(message.guild.id);
-			return message.channel.send(`:musical_note: :x: | No pude unirme al canal de voz: ${error}`);
-		}
-	} else {
-		serverQueue.songs.push(song);
-		console.log(serverQueue.songs);
-		if (playlist) return undefined;
-        else return message.channel.send(`:musical_note: ✅ | **${song.title}** ha sido enlistado.`);
-	}
-	return undefined;
-}
-  function play(guild, song) {
-	var serverQueue = queue.get(guild.id);
-
-	if (!song) {
-		serverQueue.voiceChannel.leave();
-		queue.delete(guild.id);
-		return;
-	}
-	console.log(serverQueue.url);
-
-
-	const dispatcher = serverQueue.connection.playStream(ytdl(song.url))
-		.on('end', reason => {
-     // message.channel.send('``The queue of song is end.``');
-			if (reason === 'Stream is not generating quickly enough.') console.log('Canción finalizada.')
-			else console.log(reason);
-			serverQueue.songs.shift();
-			play(guild, serverQueue.songs[0]);
-		})
-		.on('error', error => console.error(error));
-	dispatcher.setVolumeLogarithmic(serverQueue.volume / 100);
-    var fetchVideoInfo = require('youtube-info');
-fetchVideoInfo(`${song.id}`, function (err, videoInfo) {
-  if (err) throw new Error(err);
-
-  const ytSearch = require( 'yt-search')
-ytSearch( song.url, function ( err, r ) {
-    if ( err ) throw err
-
-    const videos = r.videos
-    const playlists = r.playlists
-    const accounts = r.accounts
-
-    const firstResult = videos[ 0 ]
-try {
-    let embed = new Discord.RichEmbed()
-    .setAuthor("Reproduciendo ahora:")
-    .setDescription("["+`${song.title}`+"]"+"("+`${song.url}`+")")
-    .setColor("RANDOM")
-    .addField("Duración:", `${firstResult.timestamp}`,true)
-    .addField("Vistas:", videoInfo.views,true)
-    .addField("Likes:", videoInfo.likeCount,true)
-    .setThumbnail(song.img)
-    .setTimestamp()
-    .setFooter(message.guild.name ,message.guild.iconURL);
-     serverQueue.textChannel.send(embed);
-   } catch (e) {
-     return message.channel.send('Ocurrió un error desconocido. Intenta de nuevo.\nDetalles del error: `'+e+'`')
-   }
- })})};
-}).catch(error => {
-  console.log('Ocurrió un error: '+error)
-})
+  });
 });
+
+function canSkip(member, queue) {
+		if (ALLOW_ALL_SKIP) return true;
+		else if (queue[0].requester === member.id) return true;
+		else return false;
+	}
+function getQueue(server) {
+		if (!queues[server]) queues[server] = [];
+		return queues[server];
+	}
+function executeQueue(msg, queue) {
+		// If the queue is empty, finish.
+		if (queue.length === 0) {
+			const embed = new Discord.RichEmbed()
+      .setDescription(':ballot_box_with_check: **Reproducción terminada.**')
+      msg.channel.send({embed});
+
+			// Leave the voice channel.
+			const voiceConnection = client.voiceConnections.find(val => val.channel.guild.id == msg.guild.id);
+			if (voiceConnection !== null) return voiceConnection.disconnect();
+		}
+
+		new Promise((resolve, reject) => {
+			// Join the voice channel if not already in one.
+			const voiceConnection = client.voiceConnections.find(val => val.channel.guild.id == msg.guild.id);
+			if (voiceConnection === null) {
+				if (msg.member.voiceChannel) {
+					msg.member.voiceChannel.join().then(connection => {
+						resolve(connection);
+					}).catch((error) => {
+						console.log(error);
+					});
+				} else {
+					// Otherwise, clear the queue and do nothing.
+					queue.splice(0, queue.length);
+					reject();
+				}
+			} else {
+				resolve(voiceConnection);
+			}
+		}).then(connection => {
+			// Get the first item in the queue.
+			const video = queue[0];
+
+			console.log(video.webpage_url);
+
+			// Play the video.
+      const embed = new Discord.RichEmbed()
+      .setDescription(`**:notes: Reproduciendo ahora:** [${video.title}](${video.webpage_url})`)
+      msg.channel.send({embed}).then(() => {
+				let dispatcher = connection.playStream(ytdl(video.webpage_url, {filter: 'audioonly'}), {seek: 0, volume: DEFAULT_VOLUME/100});
+
+				connection.on('error', (error) => {
+					// Skip to the next song.
+					console.log(error);
+					queue.shift();
+					executeQueue(msg, queue);
+				});
+
+				dispatcher.on('error', (error) => {
+					// Skip to the next song.
+					console.log(error);
+					queue.shift();
+					executeQueue(msg, queue);
+				});
+
+				dispatcher.on('end', () => {
+					// Wait a second.
+					setTimeout(() => {
+						if (queue.length > 0) {
+							// Remove the song from the queue.
+							queue.shift();
+							// Play the next song in the queue.
+							executeQueue(msg, queue);
+						}
+					}, 1000);
+				});
+			}).catch((error) => {
+				console.log(error);
+			});
+		}).catch((error) => {
+			console.log(error);
+		});
+	}
+
 client.login(process.env.TOKEN);

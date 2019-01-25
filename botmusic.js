@@ -109,7 +109,6 @@ break;
         } else {
             Player.repeat = false;
             return message.channel.send(":musical_note: Modo repeat desactivado");
-        }
   
 break;
       case "volume":

@@ -95,22 +95,6 @@ client.on("message", async message => {
       return message.channel.send(":musical_note: :stop_button:  | He dejado el canal de voz y borré la lista de reproducción.");
 		return undefined;
 break;
-      case "repeat":
-        let Player = client().get(message.guild.id);
-        if (!Player) return message.channel.send({ embed: { title: `Illusion Music`, color: 16711680, description: `I'm currently not playing in this server, play something with \`${config.discord.prefix}play <YouTube Link>\` and try again`, footer: { text: `Illusion Music`, icon_url: client.user.avatarURL() }, timestamp: new Date() } });
-        if (!message.guild.me.voice.channel) return msg.channel.send({ embed: { title: `Illusion Music`, color: 16711680, description: `Something went wrong, I cannot detect my current voice channel, try again later`, footer: { text: `Illusion Music`, icon_url: client.user.avatarURL() }, timestamp: new Date() } });
-        if (!message.member.voice.channel) return msg.channel.send({ embed: { title: `Illusion Music`, color: 16711680, description: `You must be in a voice channel to use the play command`, footer: { text: `Illusion Music`, icon_url: client.user.avatarURL() }, timestamp: new Date() } });
-        if (message.member.voice.channel != msg.guild.me.voice.channel) return msg.channel.send({ embed: { title: `Illusion Music`, color: 16711680, description: `You must be in my current voice channel to use the play command`, footer: { text: `Illusion Music`, icon_url: client.user.avatarURL() }, timestamp: new Date() } });
-        
-        if (!Player.repeat) {
-            Player.repeat = true;
-            return message.channel.send(":musical_note: Modo repeat activado");
-        } else {
-            Player.repeat = false;
-            return message.channel.send(":musical_note: Modo repeat desactivado");
-		 }
-   }
-break;
       case "volume":
           if (!message.member.voiceChannel) return message.channel.send(':musical_note: :x: | No estás en un canal de voz.');
           if (!serverQueue) return message.channel.send(':musical_note: :x: | La lista de reproducción está vacía.');

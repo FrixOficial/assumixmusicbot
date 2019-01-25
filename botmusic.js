@@ -292,23 +292,5 @@ try {
 }).catch(error => {
   console.log('Ocurrió un error: '+error)
 })
-class Music {
-      constructor(client, options) {
-        // Data Objects
-        this.commands = new Map();
-        this.commandsArray = [];
-        this.aliases = new Map();
-        this.queues = new Map();
-        this.client = client;
-this.loop = {
-          enabled: (options.loop == undefined ? true : (options.loop && typeof options.loop.enabled !== 'undefined' ? options.loop && options.loop.enabled : true)),
-          run: "loopFunction",
-          alt: (options && options.loop && options.loop.alt) || [],
-          help: (options && options.loop && options.loop.help) || "Sets the loop state for the queue.",
-          name: (options && options.loop && options.loop.name) || "loop",
-          usage: (options && options.loop && options.loop.usage) || null,
-          exclude: Boolean((options && options.loop && options.loop.exclude)),
-          masked: "loop"
-        }
 });
 client.login(process.env.TOKEN);

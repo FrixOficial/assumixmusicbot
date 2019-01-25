@@ -141,13 +141,13 @@ break;
       .setColor("RANDOM")
       return message.channel.send(queue);
 break;
-      case "repeat":    
-        let Player = queue().get(message.guild.id);        
-        if (!Player.repeat) {
-            Player.repeat = true;
+      case "repeat":   
+if (!serverQueue) return message.channel.send(':musical_note: :x: | La lista de reproducción está vacía.');
+        if (!serverQueue.repeat) {
+            serverQueue.repeat = true;
             return message.channel.send('repeat activao');
         } else {
-            Player.repeat = false;
+            serverQueue.repeat = false;
             return message.channel.send('repeat desactivao');
         }
           

@@ -140,17 +140,12 @@ break;
               `)
       .setColor("RANDOM")
       return message.channel.send(queue);
-break;
-      case "repeat":   
-if (!serverQueue) return message.channel.send(':musical_note: :x: | La lista de reproducción está vacía.');
-        if (!serverQueue.repeat) {
-            queue.repeat = true;
-          serverQueue.connection.dispatcher.loop();
-            return message.channel.send('repeat activao');
-        } else {
-            serverQueue.repeat = false;
-            return message.channel.send('repeat desactivao');
-        }
+        break;
+      case "repeat":
+      if (!message.member.voiceChannel) return message.channel.send(':musical_note: :x: | No estás en un canal de voz.');
+      if (!serverQueue) return message.channel.send(':musical_note: :x: | La lista de reproducción está vacía.');
+      serverQueue.connection.dispatcher.repeat();
+		return message.channel.send("activao");
           
 break;
       case "pause":

@@ -141,6 +141,20 @@ break;
       .setColor("RANDOM")
       return message.channel.send(queue);
 break;
+      case "repeat":    
+        trigger: ({ client, message, params, raw, clean }) => {
+        let Player = queue().get(message.guild.id);
+        if (message.member.voice.channel != message.guild.me.voice.channel) return message.channel.send('repeat desactivao');
+        
+        if (!Player.repeat) {
+            Player.repeat = true;
+            return message.channel.send('repeat activao');
+        } else {
+            Player.repeat = false;
+            return message.channel.send('repeat desactivao');
+        }
+    }
+break;
       case "pause":
 		if (serverQueue && serverQueue.playing) {
 			serverQueue.playing = false;

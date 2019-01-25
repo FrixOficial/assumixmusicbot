@@ -142,13 +142,13 @@ break;
       return message.channel.send(queue);
 break;
       case "repeat":   
-if (!serverQueue) return message.channel.send(':musical_note: :x: | La lista de reproducción está vacía.');
-        if (!serverQueue.repeat) {
-            serverQueue.repeat = true;
-          serverQueue.connection.dispatcher.repeat();
+if (!queue) return message.channel.send(':musical_note: :x: | La lista de reproducción está vacía.');
+        if (!queue.repeat) {
+            queue.repeat = true;
+          queue.connection.dispatcher.loop();
             return message.channel.send('repeat activao');
         } else {
-            serverQueue.repeat = false;
+            queue.repeat = false;
             return message.channel.send('repeat desactivao');
         }
           

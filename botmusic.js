@@ -96,21 +96,15 @@ client.on("message", async message => {
 		return undefined;
 break;
       case "repeat":
-    trigger: ({ client, msg, params, raw, clean }) => {
-        const Player = client().get(msg.guild.id);
-        if (!Player) return msg.channel.send({ embed: { title: `Illusion Music`, color: 16711680, description: `I'm currently not playing in this server, play something with \`${config.discord.prefix}play <YouTube Link>\` and try again`, footer: { text: `Illusion Music`, icon_url: client.user.avatarURL() }, timestamp: new Date() } });
-        if (!msg.guild.me.voice.channel) return msg.channel.send({ embed: { title: `Illusion Music`, color: 16711680, description: `Something went wrong, I cannot detect my current voice channel, try again later`, footer: { text: `Illusion Music`, icon_url: client.user.avatarURL() }, timestamp: new Date() } });
-        if (!msg.member.voice.channel) return msg.channel.send({ embed: { title: `Illusion Music`, color: 16711680, description: `You must be in a voice channel to use the play command`, footer: { text: `Illusion Music`, icon_url: client.user.avatarURL() }, timestamp: new Date() } });
-        if (msg.member.voice.channel != msg.guild.me.voice.channel) return msg.channel.send({ embed: { title: `Illusion Music`, color: 16711680, description: `You must be in my current voice channel to use the play command`, footer: { text: `Illusion Music`, icon_url: client.user.avatarURL() }, timestamp: new Date() } });
-        
-        if (!Player.repeat) {
-            Player.repeat = true;
-            return msg.channel.send({ embed: { title: `Illusion Music`, color: 8388736, description: `Successfully enabled repeat for ${Player.playing.title}\n\nYou can turn this off by running \`${config.discord.prefix}repeat\` again`, footer: { text: `Illusion Music`, icon_url: client.user.avatarURL() } } });
+      if (!message.member.voiceChannel) return message.channel.send(':musical_note: :x: | No estás en un canal de voz.');
+        if (!serverQueue.repeat) {
+            serverQueue.repeat = true;
+            return message.channel.send({ embed: { title: `Assumix`, color: 8388736, description: `Successfully enabled repeat for ${serverQueue.playing.title}\n\nYou can turn this off by running \`${config.discord.prefix}repeat\` again`, footer: { text: `Assumix`, icon_url: client.user.avatarURL() } } });
         } else {
-            Player.repeat = false;
-            return msg.channel.send({ embed: { title: `Illusion Music`, color: 8388736, description: `Successfully disabled repeat\n\nYou can turn this on by running \`${config.discord.prefix}repeat\` again`, footer: { text: `Illusion Music`, icon_url: client.user.avatarURL() } } });
+            serverQueue.repeat = false;
+            return message.channel.send({ embed: { title: `Assumix`, color: 8388736, description: `Successfully disabled repeat\n\nYou can turn this on by running \`${config.discord.prefix}repeat\` again`, footer: { text: `Assumix`, icon_url: client.user.avatarURL() } } });
         }
-  }
+  
 break;
       case "volume":
           if (!message.member.voiceChannel) return message.channel.send(':musical_note: :x: | No estás en un canal de voz.');

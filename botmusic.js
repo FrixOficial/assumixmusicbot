@@ -96,7 +96,6 @@ client.on("message", async message => {
 		return undefined;
 break;
       case "repeat":
-       trigger: ({ client, message, params, raw, clean }) => {
         let Player = client().get(message.guild.id);
         if (!Player) return message.channel.send({ embed: { title: `Illusion Music`, color: 16711680, description: `I'm currently not playing in this server, play something with \`${config.discord.prefix}play <YouTube Link>\` and try again`, footer: { text: `Illusion Music`, icon_url: client.user.avatarURL() }, timestamp: new Date() } });
         if (!message.guild.me.voice.channel) return msg.channel.send({ embed: { title: `Illusion Music`, color: 16711680, description: `Something went wrong, I cannot detect my current voice channel, try again later`, footer: { text: `Illusion Music`, icon_url: client.user.avatarURL() }, timestamp: new Date() } });

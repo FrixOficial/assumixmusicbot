@@ -99,10 +99,10 @@ break;
       if (!message.member.voiceChannel) return message.channel.send(':musical_note: :x: | No estás en un canal de voz.');
         if (!serverQueue.repeat) {
             serverQueue.repeat = true;
-            return message.channel.send({ embed: { title: `Assumix`, color: 8388736, description: `Successfully enabled repeat for ${serverQueue.playing.title}\n\nYou can turn this off by running \`${config.discord.prefix}repeat\` again`, footer: { text: `Assumix`, icon_url: client.user.avatarURL() } } });
+            return message.channel.send(":musical_note: Modo repeat activado");
         } else {
             serverQueue.repeat = false;
-            return message.channel.send({ embed: { title: `Assumix`, color: 8388736, description: `Successfully disabled repeat\n\nYou can turn this on by running \`${config.discord.prefix}repeat\` again`, footer: { text: `Assumix`, icon_url: client.user.avatarURL() } } });
+            return message.channel.send(":musical_note: Modo repeat desactivado");
         }
   
 break;

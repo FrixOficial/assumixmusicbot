@@ -293,4 +293,4 @@ try {
   console.log('Ocurrió un error: '+error)
 })
 });
-client.login(process.env.TOKEN);
+client.login(config.token);

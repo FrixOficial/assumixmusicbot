@@ -142,7 +142,6 @@ break;
       return message.channel.send(queue);
 break;
       case "repeat":    
-        trigger: ({ client, message, params, raw, clean }) => {
         let Player = queue().get(message.guild.id);        
         if (!Player.repeat) {
             Player.repeat = true;
@@ -151,7 +150,7 @@ break;
             Player.repeat = false;
             return message.channel.send('repeat desactivao');
         }
-          }
+          
 break;
       case "pause":
 		if (serverQueue && serverQueue.playing) {

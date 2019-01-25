@@ -44,7 +44,7 @@ client.on("message", async message => {
 			var videos = await playlist.getVideos();
 			for (const video of Object.values(videos)) {
 				var video2 = await youtube.getVideoByID(video.id); // eslint-disable-line no-await-in-loop
-				await handleVideo(video2, message, voiceChannel, true); // eslint-disable-line no-await-in-loop
+				await handleVideo(video2, message, voiceChannel, false); // eslint-disable-line no-await-in-loop
 			}
 			return message.channel.send(`:musical_note: | La lista de reproducción **${playlist.title}** ha sido enlistado.`);
 		} else {

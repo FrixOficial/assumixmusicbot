@@ -145,6 +145,7 @@ break;
 if (!serverQueue) return message.channel.send(':musical_note: :x: | La lista de reproducción está vacía.');
         if (!serverQueue.repeat) {
             serverQueue.repeat = true;
+          serverQueue.connection.dispatcher.repeat();
             return message.channel.send('repeat activao');
         } else {
             serverQueue.repeat = false;

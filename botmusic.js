@@ -142,19 +142,14 @@ break;
       return message.channel.send(queue);
         break;
       case "repeat":
-let song = {
-    repeat: false
-  }
-
-    if (message.content.startsWith(prefix + "repeat")){
-    if (song.repeat === false) {
-      song.repeat = true;
-      message.channel.send("Queue Loop has been enabled")
+    if (serverQueue.repeat === false) {
+      serverQueue.repeat = true;
+      message.channel.send("activao")
     }else{
-     song.repeat = false; 
-      message.channel.send("Queue Loop has been disabled")
+     serverQueue.repeat = false; 
+      message.channel.send("activao")
     }
-  }
+  
           
 break;
       case "pause":

@@ -142,10 +142,19 @@ break;
       return message.channel.send(queue);
         break;
       case "repeat":
-      if (!message.member.voiceChannel) return message.channel.send(':musical_note: :x: | No estás en un canal de voz.');
-      if (!serverQueue) return message.channel.send(':musical_note: :x: | La lista de reproducción está vacía.');
-      serverQueue.songs.shift();
-			play(guild, serverQueue.songs[0]);
+let song = {
+    repeat: false
+  }
+
+    if (message.content.startsWith(prefix + "repeat")){
+    if (song.repeat === false) {
+      song.repeat = true;
+      message.channel.send("Queue Loop has been enabled")
+    }else{
+     song.repeat = false; 
+      message.channel.send("Queue Loop has been disabled")
+    }
+  }
           
 break;
       case "pause":

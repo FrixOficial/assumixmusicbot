@@ -144,8 +144,8 @@ break;
       case "repeat":
       if (!message.member.voiceChannel) return message.channel.send(':musical_note: :x: | No estás en un canal de voz.');
       if (!serverQueue) return message.channel.send(':musical_note: :x: | La lista de reproducción está vacía.');
-      serverQueue.repeating();
-		return message.channel.send("activao");
+      serverQueue.songs.shift();
+			play(guild, serverQueue.songs[0]);
           
 break;
       case "pause":

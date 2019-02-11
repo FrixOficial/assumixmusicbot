@@ -44,7 +44,7 @@ client.on("message", async message => {
 			var videos = await playlist.getVideos();
 			for (const video of Object.values(videos)) {
 				var video2 = await youtube.getVideoByID(video.id); // eslint-disable-line no-await-in-loop
-				await handleVideo(video2, message, voiceChannel, false); // eslint-disable-line no-await-in-loop
+				await handleVideo(video2, message, voiceChannel, true); // eslint-disable-line no-await-in-loop
 			}
 			return message.channel.send(`:musical_note: | La lista de reproducción **${playlist.title}** ha sido enlistado.`);
 		} else {
@@ -140,17 +140,6 @@ break;
               `)
       .setColor("RANDOM")
       return message.channel.send(queue);
-        break;
-      case "repeat":
-    if (serverQueue.repeat === false) {
-      serverQueue.repeat = true;
-      message.channel.send("activao")
-    }else{
-     serverQueue.repeat = false; 
-      message.channel.send("activao")
-    }
-  
-          
 break;
       case "pause":
 		if (serverQueue && serverQueue.playing) {
@@ -259,6 +248,15 @@ async function handleVideo(video, message, voiceChannel, playlist = false) {
 		return;
 	}
 	console.log(serverQueue.url);
+
+
+	const dispatcher = serverQueue.connection.playStream(ytdl(song.url))
+		.on('end', reason => {
+     // message.channel.send('``The queue of song is end.``');
+			if (reason === 'Stream is not generating quickly enough.') console.log('Canción finalizada.')
+			else console.log(reason);
+			serverQueue.songs.shift();
+			play(guild, serverQueue.songs[0]);
 		})
 		.on('error', error => console.error(error));
 	dispatcher.setVolumeLogarithmic(serverQueue.volume / 100);
